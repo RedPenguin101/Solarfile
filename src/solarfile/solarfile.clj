@@ -20,17 +20,19 @@
 
 (defn get-file! [file-key protocol]
   (case protocol
-    :s3 (read-body-stream (assoc (get-and-check (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
+    :s3    (read-body-stream (assoc (get-and-check (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
     :local {:Body (slurp (str "resources/" file-key)) :file-name file-key :source :local}))
 
-{:LastModified #inst "2021-05-22T09:57:13.000-00:00"
- :ETag "\"098f6bcd4621d373cade4e832627b4f6\""
- :Metadata {}
- :ContentLength 4
- :ContentType "text/plain"
- :AcceptRanges "bytes"
- :Body "test"
- :filename "test.txt"}
+(comment
+  "objects come back from S3 like this:"
+  {:LastModified #inst "2021-05-22T09:57:13.000-00:00"
+   :ETag "\"098f6bcd4621d373cade4e832627b4f6\""
+   :Metadata {}
+   :ContentLength 4
+   :ContentType "text/plain"
+   :AcceptRanges "bytes"
+   :Body "test"
+   :filename "test.txt"})
 
 (def file-specs
   {:some-file       {:mask #"trades.csv"
@@ -73,15 +75,6 @@
 
 (comment
   (decrypt "resources/privkey.asc" "welcome" (slurp "resources/encrypt.txt.pgp")))
-
-(defn pipe-wrap [f in-key out-key log]
-  (fn [flock & f-args]
-    (-> flock
-        (assoc out-key (apply f (in-key flock) f-args))
-        (update :logs conj log))))
-
-(def pipe-file-spec (pipe-wrap find-file-spec :file-name :file-spec "Got File Spec"))
-(def pipe-get-file (pipe-wrap get-file! :file-name :file "Got File"))
 
 (defn pipe-prep [event]
   {:event event
