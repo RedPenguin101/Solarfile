@@ -17,7 +17,10 @@
 
 (defn read-body-stream [file] (update file :Body slurp))
 
-(defn get-and-check [bucket key]
+(defn get-and-check
+  "Given an S3 bucket and a key, trys to fetch the object. Throws if the response
+   contains an error."
+  [bucket key]
   (let [response (aws/invoke s3 {:op :GetObject :request {:Bucket bucket :Key key}})]
     (if (:Error response)
       (throw (ex-info "Error getting file" response))
@@ -41,11 +44,20 @@
 
 ;; File Specs
 
+(comment
+  "File Specs have:
+   * masks (required) - this is to check the identity of the file spec
+                        and decide whether to download the file (on a hit)
+   * instance identity (required) - this is how you identify the instance of the
+     file - what the effective date is, what the fund is, etc. It takes the form
+     of an array of records with rules on how to determine a particular identity
+     attribute (see establish identity section for details)")
+
 (def file-specs
   {:some-file       {:mask #"trades.csv"
                      :format :csv
-                     :instance-identity [{:name "Business Date" :look-in :file-name :pattern #"\d{4}-\d{2}-\d{2}"}
-                                         {:name "BD in file" :look-in :file-content :fn (fn [_] :not-implemented)}]
+                     :instance-identity [{:name :business-date :look-in :file-name :pattern #"\d{4}-\d{2}-\d{2}"}
+                                         {:name :bd-in-file :look-in :file-content :fn (fn [_] :not-implemented)}]
                      :expectations []
                      :endpoints []}
    :some-other-file {:mask #"test.txt"
@@ -55,7 +67,7 @@
                      :endpoints []}
    :encrypted-file  {:mask #"encrypt.txt.pgp"
                      :format :txt
-                     :instance-identity [{:name "Test" :look-in :constant :value "Test"}]
+                     :instance-identity [{:name :test :look-in :constant :value "Test"}]
                      :decryption {:key-loc "resources/keys/privkey.asc"
                                   :password "welcome"}
                      :expectations []
@@ -67,11 +79,11 @@
                                           :cell [4 2]}]}})
 
 (defn find-file-spec [filename specs]
-  (let [matches (keep (fn [[spec spec-def]] (when (re-find (:mask spec-def) filename) spec)) specs)]
+  (let [spec-matches (keep (fn [[spec spec-def]] (when (re-find (:mask spec-def) filename) spec)) specs)]
     (cond
-      (= (count matches) 1) (assoc ((first matches) specs) :spec-name (first matches))
-      (> (count matches) 1) {:errors [["Multiple filespec matches" matches]]}
-      (zero? (count matches)) nil)))
+      (= (count spec-matches) 1) (assoc ((first spec-matches) specs) :spec-name (first spec-matches))
+      (> (count spec-matches) 1) {:errors [["Multiple filespec matches" spec-matches]]}
+      (zero? (count spec-matches)) nil)))
 
 (comment
   (find-file-spec "anothertest.txt" file-specs)
@@ -114,7 +126,15 @@
 (comment
   (decrypt "resources/keys/privkey.asc" "welcome" (slurp "resources/encrypt.txt.pgp")))
 
-;; Pipeline functions and pipe
+;;;;;;;;;;;;;;;;; Pipeline functions and pipe ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Pipelines operate on "flocks" of data - maps, flowing them through the 
+;; pipeline and accreting new data to them through each pipe section
+;; Pipe functions just wrap some business functionality so it fits the 
+;; pipeline pattern: 
+;;                      function :: flock -> flock
+;; usually by assoc'ing in a new key. 
+;; They usually accrete the pipe-logs at the same time
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn pipe-prep [event]
   (merge (select-keys event [:file-name :location :run-id])
@@ -131,9 +151,9 @@
     (update flock :logs conj (str "No file spec, didn't get anything"))))
 
 (defn pipe-decrypt [flock]
-  (if-let [d (-> flock :file-spec :decryption)]
+  (if-let [{:keys [key-loc password]} (-> flock :file-spec :decryption)]
     (-> flock
-        (update-in [:file :Body] #(decrypt (:key-loc d) (:password d) %))
+        (update-in [:file :Body] #(decrypt key-loc password %))
         (update :logs conj "Successfully decrypted"))
     (update flock :logs conj "No decryption")))
 
@@ -142,7 +162,9 @@
          (apply merge (for [rule (get-in flock [:file-spec :instance-identity])]
                         (establish-identity (get flock :file) rule)))))
 
-(defn obscure-secrets [flock]
+(defn obscure-secrets
+  "Removes any sensitive information from the flock before it is emitted"
+  [flock]
   (cond-> flock
     (get-in flock [:file-spec :decryption])
     (assoc-in [:file-spec :decryption] true)))
