@@ -30,14 +30,14 @@
 
 (comment
   "objects come back from S3 like this:"
+
   {:LastModified #inst "2021-05-22T09:57:13.000-00:00"
    :ETag "\"098f6bcd4621d373cade4e832627b4f6\""
    :Metadata {}
    :ContentLength 4
    :ContentType "text/plain"
    :AcceptRanges "bytes"
-   :Body "test"
-   :filename "test.txt"})
+   :Body "test"})
 
 ;; File Specs
 
