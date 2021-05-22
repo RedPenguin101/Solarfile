@@ -11,3 +11,5 @@
 .hg/
 .lsp
 .calva
+/resources/keys
+/resources/.secrets.edn
