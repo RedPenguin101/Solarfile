@@ -117,10 +117,8 @@
 ;; Pipeline functions and pipe
 
 (defn pipe-prep [event]
-  {:event event
-   :file-name (:file-name event)
-   :location (:location event)
-   :logs []})
+  (merge (select-keys event [:file-name :location :run-id])
+         {:event event :logs []}))
 
 (defn pipe-file-spec [flock]
   (if-let [spec (find-file-spec (:file-name flock) file-specs)]
@@ -163,7 +161,8 @@
   (process-file-event! {:file-name "test.txt" :location :local})
   (process-file-event! {:file-name "notinterested.txt" :location :local})
   (process-file-event! {:file-name "2021-05-21_trades.csv" :location :local})
-  (process-file-event! {:file-name "portfolios.csv" :location :local})
+  (process-file-event! {:file-name "portfolios.csv" :location :local
+                        :run-id (java.util.UUID/randomUUID)})
 
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :s3})
 
