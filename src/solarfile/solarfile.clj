@@ -95,11 +95,8 @@
   1)
 
 (defn decrypt [key-loc password message]
-  (let [keyring (keyring/load-secret-keyring (slurp key-loc))
-        pubkey (first (keyring/list-public-keys keyring))
-        seckey (keyring/get-secret-key keyring (pgp/hex-id pubkey))
-        privkey (pgp/unlock-key seckey password)]
-    (pgp-msg/decrypt message privkey)))
+  (let [keyring (keyring/load-secret-keyring (slurp key-loc))]
+    (pgp-msg/decrypt message (pgp/unlock-key (keyring/get-secret-key keyring (first (keyring/list-public-keys keyring))) password))))
 
 (comment
   (decrypt "resources/keys/privkey.asc" "welcome" (slurp "resources/encrypt.txt.pgp")))
