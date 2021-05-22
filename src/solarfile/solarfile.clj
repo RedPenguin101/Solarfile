@@ -23,6 +23,23 @@
     :s3    (read-body-stream (assoc (get-and-check (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
     :local {:Body (slurp (str "resources/" file-key)) :file-name file-key :source :local}))
 
+(defn establish-identity [file rule]
+  (case (:look-in rule)
+    :file-name (if-let [value (re-find (:pattern rule) (:file-name file))]
+                 {(:name rule) value}
+                 (throw (ex-info "Couldn't establish identity" {:rule rule :file-name (:file-name file)})))
+    :file-content {(:name rule) ((:fn rule) (:Body file))}
+    :constant {(:name rule) (:value rule)}))
+
+(comment
+  (establish-identity {:file-name "2021-01-01_test.txt"}
+                      {:name :business-date
+                       :look-in :file-name
+                       :pattern #"\d{4}-\d{2}-\d{2}"})
+
+  (establish-identity {:file-name "2021-01-01_test.txt"}
+                      {:name :bd-in-file :look-in :file-content :fn (fn [_] :not-implemented)}))
+
 (comment
   "objects come back from S3 like this:"
   {:LastModified #inst "2021-05-22T09:57:13.000-00:00"
@@ -37,17 +54,18 @@
 (def file-specs
   {:some-file       {:mask #"trades.csv"
                      :format :csv
-                     :instance-identity [{:name :business-date :lookin :filename :pattern #"(\d{4}-\d{2}-\d{2})"}]
+                     :instance-identity [{:name "Business Date" :look-in :file-name :pattern #"\d{4}-\d{2}-\d{2}"}
+                                         {:name "BD in file" :look-in :file-content :fn (fn [_] :not-implemented)}]
                      :expectations []
                      :endpoints []}
    :some-other-file {:mask #"test.txt"
                      :format :txt
-                     :instance-identity false
+                     :instance-identity [{:name "Test" :look-in :constant :value "Test"}]
                      :expectations []
                      :endpoints []}
    :encrypted-file  {:mask #"encrypt.txt.pgp"
                      :format :txt
-                     :instance-identity false
+                     :instance-identity [{:name "Test" :look-in :constant :value "Test"}]
                      :decryption {:key-loc "resources/keys/privkey.asc"
                                   :password "welcome"}
                      :expectations []
@@ -76,6 +94,8 @@
 (comment
   (decrypt "resources/keys/privkey.asc" "welcome" (slurp "resources/encrypt.txt.pgp")))
 
+;; Pipeline functions and pipe
+
 (defn pipe-prep [event]
   {:event event
    :file-name (:file-name event)
@@ -99,6 +119,11 @@
         (update :logs conj "Successfully decrypted"))
     (update flock :logs conj "No decryption")))
 
+(defn pipe-identify [flock]
+  (assoc flock :identity
+         (for [rule (get-in flock [:file-spec :instance-identity])]
+           (establish-identity (get flock :file) rule))))
+
 (defn obscure-secrets [flock]
   (cond-> flock
     (get-in flock [:file-spec :decryption]) (assoc-in [:file-spec :decryption] true)))
@@ -109,13 +134,15 @@
       (pipe-file-spec)
       (pipe-get-file)
       (pipe-decrypt)
+      (pipe-identify)
       (obscure-secrets)))
 
 (comment
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :local})
   (process-file-event! {:file-name "test.txt" :location :local})
   (process-file-event! {:file-name "notinterested.txt" :location :local})
+  (process-file-event! {:file-name "2021-05-21_trades.csv" :location :local})
+
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :s3})
 
   1)
-

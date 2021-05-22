@@ -7,8 +7,9 @@
 * ~~initial file-specs~~ DONE
 * ~~initial pipeline~~ DONE
 * Identity establishment
-  * from filename
-  * from file content
+  * ~~from filename~~ DONE
+  * from file content (need some quick parse stuff)
+* csv parser
 * webserver and API for event receipt
 * deploy
 * set up S3 bucket to send events
