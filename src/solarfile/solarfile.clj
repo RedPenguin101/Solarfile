@@ -7,9 +7,13 @@
             [clj-pgp.message :as pgp-msg])
   (:gen-class))
 
+;; Config - separate eventually
+
 (def config (edn/read-string (slurp "resources/.secrets.edn")))
 (def s3 (aws/client {:api :s3}))
 (aws/validate-requests s3 true)
+
+;; Getting files
 
 (defn read-body-stream [file] (update file :Body slurp))
 
@@ -24,30 +28,6 @@
     :s3    (read-body-stream (assoc (get-and-check (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
     :local {:Body (slurp (str "resources/" file-key)) :file-name file-key :source :local}))
 
-(defn read-cell [file [row col]]
-  (get-in (vec (csv/read-csv file)) [(dec row) (dec col)]))
-
-(defn establish-identity [file rule]
-  (case (:look-in rule)
-    :file-name (if-let [value (re-find (:pattern rule) (:file-name file))]
-                 {(:name rule) value}
-                 (throw (ex-info "Couldn't establish identity" {:rule rule :file-name (:file-name file)})))
-    :file-content-csv {(:name rule) (read-cell (:Body file) (:cell rule))}
-    :file-content {(:name rule) ((:fn rule) (:Body file))}
-    :constant {(:name rule) (:value rule)}))
-
-(comment
-  (establish-identity {:file-name "2021-01-01_test.txt"}
-                      {:name :business-date
-                       :look-in :file-name
-                       :pattern #"\d{4}-\d{2}-\d{2}"})
-
-  (establish-identity {:file-name "2021-01-01_test.txt"}
-                      {:name :bd-in-file
-                       :look-in
-                       :file-content
-                       :fn (fn [_] :not-implemented)}))
-
 (comment
   "objects come back from S3 like this:"
   {:LastModified #inst "2021-05-22T09:57:13.000-00:00"
@@ -58,6 +38,8 @@
    :AcceptRanges "bytes"
    :Body "test"
    :filename "test.txt"})
+
+;; File Specs
 
 (def file-specs
   {:some-file       {:mask #"trades.csv"
@@ -96,6 +78,34 @@
   (find-file-spec "test.txt" file-specs)
   (find-file-spec "nomatch.txt" file-specs)
   1)
+
+;; Establish identity
+
+(defn read-cell [file [row col]]
+  (get-in (vec (csv/read-csv file)) [(dec row) (dec col)]))
+
+(defn establish-identity [file rule]
+  (case (:look-in rule)
+    :file-name (if-let [value (re-find (:pattern rule) (:file-name file))]
+                 {(:name rule) value}
+                 (throw (ex-info "Couldn't establish identity" {:rule rule :file-name (:file-name file)})))
+    :file-content-csv {(:name rule) (read-cell (:Body file) (:cell rule))}
+    :file-content {(:name rule) ((:fn rule) (:Body file))}
+    :constant {(:name rule) (:value rule)}))
+
+(comment
+  (establish-identity {:file-name "2021-01-01_test.txt"}
+                      {:name :business-date
+                       :look-in :file-name
+                       :pattern #"\d{4}-\d{2}-\d{2}"})
+
+  (establish-identity {:file-name "2021-01-01_test.txt"}
+                      {:name :bd-in-file
+                       :look-in
+                       :file-content
+                       :fn (fn [_] :not-implemented)}))
+
+;; Decryption
 
 (defn decrypt [key-loc password message]
   (let [keyring (keyring/load-secret-keyring (slurp key-loc))]
