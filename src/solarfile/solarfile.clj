@@ -43,7 +43,10 @@
                        :pattern #"\d{4}-\d{2}-\d{2}"})
 
   (establish-identity {:file-name "2021-01-01_test.txt"}
-                      {:name :bd-in-file :look-in :file-content :fn (fn [_] :not-implemented)}))
+                      {:name :bd-in-file
+                       :look-in
+                       :file-content
+                       :fn (fn [_] :not-implemented)}))
 
 (comment
   "objects come back from S3 like this:"
@@ -133,7 +136,8 @@
 
 (defn obscure-secrets [flock]
   (cond-> flock
-    (get-in flock [:file-spec :decryption]) (assoc-in [:file-spec :decryption] true)))
+    (get-in flock [:file-spec :decryption])
+    (assoc-in [:file-spec :decryption] true)))
 
 (defn process-file-event! [event]
   (-> event
