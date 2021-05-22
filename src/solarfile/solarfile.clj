@@ -74,7 +74,7 @@
     (pgp-msg/decrypt message privkey)))
 
 (comment
-  (decrypt "resources/privkey.asc" "welcome" (slurp "resources/encrypt.txt.pgp")))
+  (decrypt "resources/keys/privkey.asc" "welcome" (slurp "resources/encrypt.txt.pgp")))
 
 (defn pipe-prep [event]
   {:event event
