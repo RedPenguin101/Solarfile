@@ -74,7 +74,7 @@
 (defn find-file-spec [filename specs]
   (let [matches (keep (fn [[spec spec-def]] (when (re-find (:mask spec-def) filename) spec)) specs)]
     (cond
-      (= (count matches) 1) ((first matches) specs)
+      (= (count matches) 1) (assoc ((first matches) specs) :spec-name (first matches))
       (> (count matches) 1) {:errors [["Multiple filespec matches" matches]]}
       (zero? (count matches)) nil)))
 
@@ -120,9 +120,9 @@
     (update flock :logs conj "No decryption")))
 
 (defn pipe-identify [flock]
-  (assoc flock :identity
-         (for [rule (get-in flock [:file-spec :instance-identity])]
-           (establish-identity (get flock :file) rule))))
+  (assoc flock :instance-identity
+         (apply merge (for [rule (get-in flock [:file-spec :instance-identity])]
+                        (establish-identity (get flock :file) rule)))))
 
 (defn obscure-secrets [flock]
   (cond-> flock
@@ -144,5 +144,8 @@
   (process-file-event! {:file-name "2021-05-21_trades.csv" :location :local})
 
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :s3})
+
+  (map #(process-file-event! {:file-name % :location :local})
+       ["encrypt.txt.pgp" "test.txt" "notinterested.txt" "2021-05-21_trades.csv"])
 
   1)
