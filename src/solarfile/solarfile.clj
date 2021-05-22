@@ -1,5 +1,6 @@
 (ns solarfile.solarfile
   (:require [cognitect.aws.client.api :as aws]
+            [clojure.data.csv :as csv]
             [clojure.edn :as edn]
             [clj-pgp.core :as pgp]
             [clj-pgp.keyring :as keyring]
@@ -23,11 +24,15 @@
     :s3    (read-body-stream (assoc (get-and-check (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
     :local {:Body (slurp (str "resources/" file-key)) :file-name file-key :source :local}))
 
+(defn read-cell [file [row col]]
+  (get-in (vec (csv/read-csv file)) [(dec row) (dec col)]))
+
 (defn establish-identity [file rule]
   (case (:look-in rule)
     :file-name (if-let [value (re-find (:pattern rule) (:file-name file))]
                  {(:name rule) value}
                  (throw (ex-info "Couldn't establish identity" {:rule rule :file-name (:file-name file)})))
+    :file-content-csv {(:name rule) (read-cell (:Body file) (:cell rule))}
     :file-content {(:name rule) ((:fn rule) (:Body file))}
     :constant {(:name rule) (:value rule)}))
 
@@ -69,7 +74,12 @@
                      :decryption {:key-loc "resources/keys/privkey.asc"
                                   :password "welcome"}
                      :expectations []
-                     :endpoints []}})
+                     :endpoints []}
+   :portfolio       {:mask #"portfolios.csv"
+                     :format :csv
+                     :instance-identity [{:name :business-date
+                                          :look-in :file-content-csv
+                                          :cell [4 2]}]}})
 
 (defn find-file-spec [filename specs]
   (let [matches (keep (fn [[spec spec-def]] (when (re-find (:mask spec-def) filename) spec)) specs)]
@@ -142,6 +152,7 @@
   (process-file-event! {:file-name "test.txt" :location :local})
   (process-file-event! {:file-name "notinterested.txt" :location :local})
   (process-file-event! {:file-name "2021-05-21_trades.csv" :location :local})
+  (process-file-event! {:file-name "portfolios.csv" :location :local})
 
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :s3})
 
