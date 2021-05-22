@@ -106,12 +106,17 @@
         (update :logs conj "Successfully decrypted"))
     (update flock :logs conj "No decryption")))
 
+(defn obscure-secrets [flock]
+  (cond-> flock
+    (get-in flock [:file-spec :decryption]) (assoc-in [:file-spec :decryption] true)))
+
 (defn process-file-event! [event]
   (-> event
       (pipe-prep)
       (pipe-file-spec)
       (pipe-get-file)
-      pipe-decrypt))
+      (pipe-decrypt)
+      (obscure-secrets)))
 
 (comment
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :local})
