@@ -5,7 +5,9 @@
         mvxcvi/clj-pgp {:mvn/version "1.0.0"}
         com.cognitect.aws/api       {:mvn/version "0.8.505"}
         com.cognitect.aws/endpoints {:mvn/version "1.1.11.1001"}
-        com.cognitect.aws/s3        {:mvn/version "811.2.889.0"}}
+        com.cognitect.aws/s3        {:mvn/version "811.2.889.0"}
+        ring/ring {:mvn/version "1.9.3"}
+        compojure/compojure {:mvn/version "1.6.2"}}
  :aliases
  {:run-m {:main-opts ["-m" "solarfile.solarfile"]}
   :run-x {:ns-default solarfile.solarfile

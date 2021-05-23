@@ -10,7 +10,7 @@
   * ~~from filename~~ DONE
   * ~~from file content (CSV)~~ DONE (need some quick parse stuff)
 * ~~csv parser~~ DONE
-* webserver and API for event receipt
+* ~~webserver and API for event receipt~~ DONE
 * deploy
 * set up S3 bucket to send events
 * file-spec state
