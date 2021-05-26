@@ -13,7 +13,7 @@
 (def s3 (aws/client {:api :s3}))
 #_(aws/validate-requests s3 true)
 
-(def job-runs (atom {}))
+(defonce job-runs (atom {}))
 
 ;; Getting files
 
