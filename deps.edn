@@ -9,9 +9,9 @@
         ring/ring {:mvn/version "1.9.3"}
         compojure/compojure {:mvn/version "1.6.2"}}
  :aliases
- {:run-m {:main-opts ["-m" "solarfile.solarfile"]}
-  :run-x {:ns-default solarfile.solarfile
-          :exec-fn greet
+ {:run-m {:main-opts ["-m" "solarfile.main"]}
+  :run-x {:ns-default solarfile.main
+          :exec-fn -main
           :exec-args {:name "Clojure"}}
   :test {:extra-paths ["test"]
          :extra-deps {org.clojure/test.check {:mvn/version "1.1.0"}}}
@@ -23,7 +23,7 @@
                "-d" "test"]}
   :uberjar {:replace-deps {seancorfield/depstar {:mvn/version "2.0.171"}}
             :exec-fn hf.depstar/uberjar
-            :exec-args {:aot true
+            :exec-args {:aot [solarfile.main]
                         :jar "solarfile.jar"
-                        :main-class "solarfile.solarfile"
+                        :main-class "solarfile.main"
                         :sync-pom true}}}}

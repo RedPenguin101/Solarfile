@@ -2,16 +2,16 @@
   (:require [cognitect.aws.client.api :as aws]
             [clojure.data.csv :as csv]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clj-pgp.core :as pgp]
             [clj-pgp.keyring :as keyring]
-            [clj-pgp.message :as pgp-msg])
-  (:gen-class))
+            [clj-pgp.message :as pgp-msg]))
 
 ;; Config - separate eventually
 
-(def config (edn/read-string (slurp "resources/.secrets.edn")))
+(def config (edn/read-string (slurp (io/resource ".secrets.edn"))))
 (def s3 (aws/client {:api :s3}))
-(aws/validate-requests s3 true)
+#_(aws/validate-requests s3 true)
 
 ;; Getting files
 
