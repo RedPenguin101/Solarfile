@@ -12,8 +12,9 @@
 * ~~csv parser~~ DONE
 * ~~webserver and API for event receipt~~ DONE
 * ~~Dockerrize~~ DONE
-* job-run state
-* API for job run history
+* ~~job-run state~~ DONE (in memory)
+* ~~API for job run history~~ DONE
+* Failed Job run API
 * Retry failed job + API
 * deploy to Fargate
 * set up S3 bucket to send events
