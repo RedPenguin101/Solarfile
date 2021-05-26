@@ -14,7 +14,8 @@
 * ~~Dockerrize~~ DONE
 * ~~job-run state~~ DONE (in memory)
 * ~~API for job run history~~ DONE
-* Failed Job run API
+* ~~Failed Job run API~~ DONE
+* handle file not found
 * Retry failed job + API
 * deploy to Fargate
 * set up S3 bucket to send events
