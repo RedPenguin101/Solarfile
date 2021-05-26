@@ -15,6 +15,8 @@
 
 (defonce job-runs (atom {}))
 
+(defn uuid [] (java.util.UUID/randomUUID))
+
 ;; Getting files
 
 (defn read-body-stream [file] (update file :Body slurp))
@@ -166,9 +168,11 @@
     (update flock :logs conj (str "No filespec for file " (:file-name flock)))))
 
 (defn pipe-get-file [flock]
-  (try (if (:file-spec flock)
-         (assoc flock :file (get-file! (:file-name flock) (:location flock)))
-         (update flock :logs conj (str "No file spec, didn't get anything")))
+  (try (cond (not (:file-spec flock)) (update flock :logs conj (str "No file spec, didn't get anything"))
+             (= :embedded (:location flock)) (assoc flock :file {:Body (get-in flock [:event :data])
+                                                                 :file-name (get-in flock [:event :file-name])
+                                                                 :source :embedded})
+             :else (assoc flock :file (get-file! (:file-name flock) (:location flock))))
        (catch java.io.FileNotFoundException e
          (throw (ex-info "File not found" (-> flock
                                               (update :errors  conj [{:error-message "File not found"
@@ -196,7 +200,7 @@
     :always (update :logs conj "secrets obscured")))
 
 (defn persist-job-run! [flock]
-  (swap! job-runs assoc (:run-id flock) flock)
+  (when (not (get-in flock [:event :dry-run])) (swap! job-runs assoc (:run-id flock) flock))
   flock)
 
 (defn process-file-event! [event]
@@ -224,6 +228,14 @@
   (process-file-event! {:file-name "doesntexist.txt"
                         :location :local
                         :run-id (java.util.UUID/randomUUID)})
+
+  (process-file-event! {:file-name "test.txt" :location :embedded
+                        :data "hello world"
+                        :run-id (uuid)})
+  (process-file-event! {:file-name "test.txt" :location :embedded
+                        :data "hello world"
+                        :run-id (uuid)
+                        :dry-run true})
 
   @job-runs
   (reset! job-runs {})
