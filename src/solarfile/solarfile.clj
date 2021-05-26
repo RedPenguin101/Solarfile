@@ -179,7 +179,8 @@
   [flock]
   (cond-> flock
     (get-in flock [:file-spec :decryption])
-    (assoc-in [:file-spec :decryption] true)))
+    (assoc-in [:file-spec :decryption] true)
+    :always (update :logs conj "secrets obscured")))
 
 (defn persist-job-run! [flock]
   (swap! job-runs assoc (:run-id flock) flock)
