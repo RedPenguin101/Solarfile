@@ -19,18 +19,18 @@
 
 (defn read-body-stream [file] (update file :Body slurp))
 
-(defn get-and-check
+(defn get-and-check-s3
   "Given an S3 bucket and a key, trys to fetch the object. Throws if the response
    contains an error."
   [bucket key]
   (let [response (aws/invoke s3 {:op :GetObject :request {:Bucket bucket :Key key}})]
     (if (:Error response)
-      (throw (ex-info "Error getting file" response))
+      (throw java.io.FileNotFoundException)
       response)))
 
 (defn get-file! [file-key protocol]
   (case protocol
-    :s3    (read-body-stream (assoc (get-and-check (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
+    :s3    (read-body-stream (assoc (get-and-check-s3 (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
     :local {:Body (slurp (str "resources/" file-key)) :file-name file-key :source :local}))
 
 (comment
@@ -78,7 +78,12 @@
                      :format :csv
                      :instance-identity [{:name :business-date
                                           :look-in :file-content-csv
-                                          :cell [4 2]}]}})
+                                          :cell [4 2]}]}
+   :doesnt-exist    {:mask #"doesntexist.txt"
+                     :format :txt
+                     :instance-identity [{:name "Test" :look-in :constant :value "Test"}]
+                     :expectations []
+                     :endpoints []}})
 
 (defn find-file-spec [filename specs]
   (let [spec-matches (keep (fn [[spec spec-def]] (when (re-find (:mask spec-def) filename) spec)) specs)]
@@ -161,9 +166,14 @@
     (update flock :logs conj (str "No filespec for file " (:file-name flock)))))
 
 (defn pipe-get-file [flock]
-  (if (:file-spec flock)
-    (assoc flock :file (get-file! (:file-name flock) (:location flock)))
-    (update flock :logs conj (str "No file spec, didn't get anything"))))
+  (try (if (:file-spec flock)
+         (assoc flock :file (get-file! (:file-name flock) (:location flock)))
+         (update flock :logs conj (str "No file spec, didn't get anything")))
+       (catch java.io.FileNotFoundException e
+         (throw (ex-info "File not found" (-> flock
+                                              (update :errors  conj [{:error-message "File not found"
+                                                                      :data (select-keys flock [:file-name :location])}])
+                                              (assoc :job-status :failed)))))))
 
 (defn pipe-decrypt [flock]
   (if-let [{:keys [key-loc password]} (-> flock :file-spec :decryption)]
@@ -199,7 +209,7 @@
                              (obscure-secrets)
                              (assoc :process-end (now))
                              (assoc :job-status :succeeded))
-                         (catch Exception e (ex-data e)))))
+                         (catch clojure.lang.ExceptionInfo e (ex-data e)))))
 
 (comment
 
@@ -209,6 +219,9 @@
   (process-file-event! {:file-name "portfolios.csv" :location :local
                         :run-id (java.util.UUID/randomUUID)})
   (process-file-event! {:file-name "encrypt.txt.pgp"
+                        :location :local
+                        :run-id (java.util.UUID/randomUUID)})
+  (process-file-event! {:file-name "doesntexist.txt"
                         :location :local
                         :run-id (java.util.UUID/randomUUID)})
 
