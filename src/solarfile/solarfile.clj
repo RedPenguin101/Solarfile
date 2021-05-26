@@ -145,12 +145,15 @@
     event
     (throw (ex-info "Event is missing required keys" {:event event
                                                       :errors [{:error-message "Event is missing required keys"
-                                                                :data event}]}))))
+                                                                :data event}]
+                                                      :job-status :failed
+                                                      :run-id (java.util.UUID/randomUUID)}))))
 
 (defn pipe-prep [event]
   (assoc (merge (select-keys (event-check event) [:file-name :location :run-id])
                 {:event event :logs []})
-         :process-start (now)))
+         :process-start (now)
+         :job-status :in-progress))
 
 (defn pipe-file-spec [flock]
   (if-let [spec (find-file-spec (:file-name flock) file-specs)]
@@ -187,16 +190,16 @@
   flock)
 
 (defn process-file-event! [event]
-  (try (-> event
-           (pipe-prep)
-           (pipe-file-spec)
-           (pipe-get-file)
-           (pipe-decrypt)
-           (pipe-identify)
-           (obscure-secrets)
-           (assoc :process-end (now))
-           (persist-job-run!))
-       (catch Exception e (ex-data e))))
+  (persist-job-run! (try (-> event
+                             (pipe-prep)
+                             (pipe-file-spec)
+                             (pipe-get-file)
+                             (pipe-decrypt)
+                             (pipe-identify)
+                             (obscure-secrets)
+                             (assoc :process-end (now))
+                             (assoc :job-status :succeeded))
+                         (catch Exception e (ex-data e)))))
 
 (comment
 

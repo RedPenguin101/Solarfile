@@ -11,6 +11,9 @@
 (defn update-vals [f m]
   (into {} (map (fn [[k v]] [k (f v)]) m)))
 
+(defn filter-vals [f m]
+  (into {} (filter (fn [[k v]] (f v)) m)))
+
 (def json-with-kw #(json/read-str % :key-fn keyword))
 
 (defn event-coerce [req-event]
@@ -32,6 +35,9 @@
   (comp/GET "/job-runs" [] {:status 200
                             :body (json/write-str (update-vals response-coerce @sf/job-runs))
                             :headers {"Content-Type" "application/json"}})
+  (comp/GET "/failed-job-runs" [] {:status 200
+                                   :body (json/write-str (update-vals response-coerce (filter-vals #(= :failed (:job-status %)) @sf/job-runs)))
+                                   :headers {"Content-Type" "application/json"}})
   (comp/POST "/event" req (file-event-handler req)))
 
 (defonce server (atom nil))
