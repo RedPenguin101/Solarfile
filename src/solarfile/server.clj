@@ -3,7 +3,6 @@
             [clojure.pprint :as pprint]
             [solarfile.solarfile :refer [process-file-event!]]
             [compojure.core :as comp :refer [defroutes]]
-            [compojure.route :as route]
             [clojure.data.json :as json]))
 
 (defn- write-edn-as-response [response]
