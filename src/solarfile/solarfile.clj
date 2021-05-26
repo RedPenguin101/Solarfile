@@ -138,9 +138,19 @@
 ;; They usually accrete the pipe-logs at the same time
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn now [] (new java.util.Date))
+
+(defn event-check [event]
+  (if (every? #(contains? event %) [:file-name :location :run-id])
+    event
+    (throw (ex-info "Event is missing required keys" {:event event
+                                                      :errors [{:error-message "Event is missing required keys"
+                                                                :data event}]}))))
+
 (defn pipe-prep [event]
-  (merge (select-keys event [:file-name :location :run-id])
-         {:event event :logs []}))
+  (assoc (merge (select-keys (event-check event) [:file-name :location :run-id])
+                {:event event :logs []})
+         :process-start (now)))
 
 (defn pipe-file-spec [flock]
   (if-let [spec (find-file-spec (:file-name flock) file-specs)]
