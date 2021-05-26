@@ -199,12 +199,18 @@
        (catch Exception e (ex-data e))))
 
 (comment
-  (process-file-event! {:file-name "encrypt.txt.pgp" :location :local})
+
   (process-file-event! {:file-name "test.txt" :location :local})
   (process-file-event! {:file-name "notinterested.txt" :location :local})
   (process-file-event! {:file-name "2021-05-21_trades.csv" :location :local})
   (process-file-event! {:file-name "portfolios.csv" :location :local
                         :run-id (java.util.UUID/randomUUID)})
+  (process-file-event! {:file-name "encrypt.txt.pgp"
+                        :location :local
+                        :run-id (java.util.UUID/randomUUID)})
+
+  @job-runs
+  (reset! job-runs {})
 
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :s3})
 
