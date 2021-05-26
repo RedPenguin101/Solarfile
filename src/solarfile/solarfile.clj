@@ -13,6 +13,8 @@
 (def s3 (aws/client {:api :s3}))
 #_(aws/validate-requests s3 true)
 
+(def job-runs (atom {}))
+
 ;; Getting files
 
 (defn read-body-stream [file] (update file :Body slurp))
@@ -169,14 +171,21 @@
     (get-in flock [:file-spec :decryption])
     (assoc-in [:file-spec :decryption] true)))
 
+(defn persist-job-run! [flock]
+  (swap! job-runs assoc (:run-id flock) flock)
+  flock)
+
 (defn process-file-event! [event]
-  (-> event
-      (pipe-prep)
-      (pipe-file-spec)
-      (pipe-get-file)
-      (pipe-decrypt)
-      (pipe-identify)
-      (obscure-secrets)))
+  (try (-> event
+           (pipe-prep)
+           (pipe-file-spec)
+           (pipe-get-file)
+           (pipe-decrypt)
+           (pipe-identify)
+           (obscure-secrets)
+           (assoc :process-end (now))
+           (persist-job-run!))
+       (catch Exception e (ex-data e))))
 
 (comment
   (process-file-event! {:file-name "encrypt.txt.pgp" :location :local})
