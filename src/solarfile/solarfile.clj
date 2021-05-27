@@ -15,13 +15,13 @@
 
 (defonce job-runs (atom {}))
 
-(defn uuid [] (java.util.UUID/randomUUID))
+(defn- uuid [] (java.util.UUID/randomUUID))
 
 ;; Getting files
 
-(defn read-body-stream [file] (update file :Body slurp))
+(defn- read-body-stream [file] (update file :Body slurp))
 
-(defn get-and-check-s3
+(defn- get-and-check-s3
   "Given an S3 bucket and a key, trys to fetch the object. Throws if the response
    contains an error."
   [bucket key]
@@ -30,7 +30,7 @@
       (throw java.io.FileNotFoundException)
       response)))
 
-(defn get-file! [file-key protocol]
+(defn- get-file! [file-key protocol]
   (case protocol
     :s3    (read-body-stream (assoc (get-and-check-s3 (-> config :s3 :bucket-name) file-key) :file-name file-key :source :s3))
     :local {:Body (slurp (str "resources/" file-key)) :file-name file-key :source :local}))
@@ -87,7 +87,7 @@
                      :expectations []
                      :endpoints []}})
 
-(defn find-file-spec [filename specs]
+(defn- find-file-spec [filename specs]
   (let [spec-matches (keep (fn [[spec spec-def]] (when (re-find (:mask spec-def) filename) spec)) specs)]
     (cond
       (= (count spec-matches) 1) (assoc ((first spec-matches) specs) :spec-name (first spec-matches))
@@ -102,15 +102,15 @@
 
 ;; Establish identity
 
-(defn read-cell [file [row col]]
+(defn- read-csv-cell [file [row col]]
   (get-in (vec (csv/read-csv file)) [(dec row) (dec col)]))
 
-(defn establish-identity [file rule]
+(defn- establish-identity [file rule]
   (case (:look-in rule)
     :file-name (if-let [value (re-find (:pattern rule) (:file-name file))]
                  {(:name rule) value}
                  (throw (ex-info "Couldn't establish identity" {:rule rule :file-name (:file-name file)})))
-    :file-content-csv {(:name rule) (read-cell (:Body file) (:cell rule))}
+    :file-content-csv {(:name rule) (read-csv-cell (:Body file) (:cell rule))}
     :file-content {(:name rule) ((:fn rule) (:Body file))}
     :constant {(:name rule) (:value rule)}))
 
@@ -128,7 +128,7 @@
 
 ;; Decryption
 
-(defn decrypt [key-loc password message]
+(defn- decrypt [key-loc password message]
   (let [keyring (keyring/load-secret-keyring (slurp key-loc))]
     (pgp-msg/decrypt message (pgp/unlock-key (keyring/get-secret-key keyring (first (keyring/list-public-keys keyring))) password))))
 
@@ -145,9 +145,9 @@
 ;; They usually accrete the pipe-logs at the same time
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn now [] (new java.util.Date))
+(defn- now [] (new java.util.Date))
 
-(defn event-check [event]
+(defn- event-check [event]
   (if (every? #(contains? event %) [:file-name :location :run-id])
     event
     (throw (ex-info "Event is missing required keys" {:event event
@@ -156,18 +156,18 @@
                                                       :job-status :failed
                                                       :run-id (java.util.UUID/randomUUID)}))))
 
-(defn pipe-prep [event]
+(defn- pipe-prep [event]
   (assoc (merge (select-keys (event-check event) [:file-name :location :run-id])
                 {:event event :logs []})
          :process-start (now)
          :job-status :in-progress))
 
-(defn pipe-file-spec [flock]
+(defn- pipe-file-spec [flock]
   (if-let [spec (find-file-spec (:file-name flock) file-specs)]
     (assoc flock :file-spec spec)
     (update flock :logs conj (str "No filespec for file " (:file-name flock)))))
 
-(defn pipe-get-file [flock]
+(defn- pipe-get-file [flock]
   (try (cond (not (:file-spec flock)) (update flock :logs conj (str "No file spec, didn't get anything"))
              (= :embedded (:location flock)) (assoc flock :file {:Body (get-in flock [:event :data])
                                                                  :file-name (get-in flock [:event :file-name])
@@ -179,19 +179,19 @@
                                                                       :data (select-keys flock [:file-name :location])}])
                                               (assoc :job-status :failed)))))))
 
-(defn pipe-decrypt [flock]
+(defn- pipe-decrypt [flock]
   (if-let [{:keys [key-loc password]} (-> flock :file-spec :decryption)]
     (-> flock
         (update-in [:file :Body] #(decrypt key-loc password %))
         (update :logs conj "Successfully decrypted"))
     (update flock :logs conj "No decryption")))
 
-(defn pipe-identify [flock]
+(defn- pipe-identify [flock]
   (assoc flock :instance-identity
          (apply merge (for [rule (get-in flock [:file-spec :instance-identity])]
                         (establish-identity (get flock :file) rule)))))
 
-(defn obscure-secrets
+(defn- obscure-secrets
   "Removes any sensitive information from the flock before it is emitted"
   [flock]
   (cond-> flock
@@ -199,7 +199,7 @@
     (assoc-in [:file-spec :decryption] true)
     :always (update :logs conj "secrets obscured")))
 
-(defn persist-job-run! [flock]
+(defn- persist-job-run! [flock]
   (when (not (get-in flock [:event :dry-run])) (swap! job-runs assoc (:run-id flock) flock))
   flock)
 
