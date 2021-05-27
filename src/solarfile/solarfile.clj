@@ -162,10 +162,12 @@
          :process-start (now)
          :job-status :in-progress))
 
-(defn- pipe-file-spec [flock]
-  (if-let [spec (find-file-spec (:file-name flock) file-specs)]
+(defn- pipe-file-spec [flock specs]
+  (if-let [spec (find-file-spec (:file-name flock) specs)]
     (assoc flock :file-spec spec)
-    (update flock :logs conj (str "No filespec for file " (:file-name flock)))))
+    (-> flock
+        (update  :logs conj (str "No filespec for file " (:file-name flock)))
+        (assoc :job-status :ignored))))
 
 (defn- pipe-get-file [flock]
   (try (cond (not (:file-spec flock)) (update flock :logs conj (str "No file spec, didn't get anything"))
@@ -203,18 +205,21 @@
   (when (not (get-in flock [:event :dry-run])) (swap! job-runs assoc (:run-id flock) flock))
   flock)
 
-(defn- process-pipe [flock]
-  (-> flock (pipe-file-spec)
+(defn succeed-if-in-progress [status]
+  (if (not (#{:failed :ignored} status)) :succeeded status))
+
+(defn process-pipe [flock specs]
+  (-> flock (pipe-file-spec specs)
       (pipe-get-file)
       (pipe-decrypt)
       (pipe-identify)
       (obscure-secrets)
       (assoc :process-end (now))
-      (assoc :job-status :succeeded)))
+      (update :job-status succeed-if-in-progress)))
 
 (defn process-file-event! [event]
   (persist-job-run! (try (-> (pipe-prep event)
-                             (process-pipe))
+                             (process-pipe file-specs))
                          (catch clojure.lang.ExceptionInfo e (ex-data e)))))
 
 (defn retry-job [failed-job]
