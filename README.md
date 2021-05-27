@@ -16,8 +16,9 @@
 * ~~API for job run history~~ DONE
 * ~~Failed Job run API~~ DONE
 * ~~handle file not found~~ DONE
-* ~~dry run flags on processing~~
-* direct/embedded location
+* ~~dry run flags on processing~~ DONE
+* ~~direct/embedded location~~ DONE
+* deploy to Fargate
 * change inbox handling
 * parsing files
   * file-format data structure
@@ -25,7 +26,6 @@
   * state for output data objects
   * crux DB for data
 * Retry failed job + API
-* deploy to Fargate
 * set up S3 bucket to send events
 * file-spec state
 * instance updates / versioning
