@@ -32,6 +32,9 @@
   (comp/GET "/" [] {:status 200
                     :body (json/write-str {"Hello" "World"})
                     :headers {"Content-Type" "application/json"}})
+  (comp/GET "/health" [] {:status 200
+                          :body (json/write-str {"status" "available"})
+                          :headers {"Content-Type" "application/json"}})
   (comp/GET "/job-runs" [] {:status 200
                             :body (json/write-str (update-vals response-coerce @sf/job-runs))
                             :headers {"Content-Type" "application/json"}})
@@ -49,7 +52,6 @@
   (when-some [s @server]
     (.stop s)
     (reset! server nil)))
-
 
 (comment
   (start)
