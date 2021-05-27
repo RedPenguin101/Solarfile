@@ -217,6 +217,13 @@
                              (process-pipe))
                          (catch clojure.lang.ExceptionInfo e (ex-data e)))))
 
+(defn retry-job [failed-job]
+  (persist-job-run! (try (-> (pipe-prep (:event failed-job))
+                             (assoc :retried-from (:run-id failed-job))
+                             (assoc :run-id (uuid))
+                             (process-pipe))
+                         (catch clojure.lang.ExceptionInfo e (ex-data e)))))
+
 (comment
 
   (process-file-event! {:file-name "test.txt" :location :local})
