@@ -203,16 +203,18 @@
   (when (not (get-in flock [:event :dry-run])) (swap! job-runs assoc (:run-id flock) flock))
   flock)
 
+(defn- process-pipe [flock]
+  (-> flock (pipe-file-spec)
+      (pipe-get-file)
+      (pipe-decrypt)
+      (pipe-identify)
+      (obscure-secrets)
+      (assoc :process-end (now))
+      (assoc :job-status :succeeded)))
+
 (defn process-file-event! [event]
-  (persist-job-run! (try (-> event
-                             (pipe-prep)
-                             (pipe-file-spec)
-                             (pipe-get-file)
-                             (pipe-decrypt)
-                             (pipe-identify)
-                             (obscure-secrets)
-                             (assoc :process-end (now))
-                             (assoc :job-status :succeeded))
+  (persist-job-run! (try (-> (pipe-prep event)
+                             (process-pipe))
                          (catch clojure.lang.ExceptionInfo e (ex-data e)))))
 
 (comment
