@@ -1,4 +1,4 @@
-FROM java:8
+FROM openjdk:8u181-alpine3.8
 
 ADD solarfile.jar /srv/solarfile.jar
 
