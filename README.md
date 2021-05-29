@@ -18,7 +18,7 @@
 * ~~handle file not found~~ DONE
 * ~~dry run flags on processing~~ DONE
 * ~~direct/embedded location~~ DONE
-* deploy to Fargate
+* ~~deploy to Fargate / EC2~~ DONE
 * change inbox handling
 * parsing files
   * file-format data structure
