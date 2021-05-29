@@ -37,3 +37,5 @@
 * Expectations
 * Sinks
 * ETL/Mart
+* TF
+* CICD
